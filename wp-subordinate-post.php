@@ -41,10 +41,8 @@ if( ! class_exists('WP_Subordinate_Post_Factory')) {
 
 		public function post_type_link( $permalink, $post ) {
 			if ( get_option('permalink_structure') && isset( $post->post_parent ) && $post->post_parent > 0 && array_key_exists($post->post_type, $this->post_type) ) {
-				$pre_built = $this->walk_parent_permalink( $post->post_parent, array( 'link' => '/' . $post->post_name ));
-				if( !empty($pre_built['post_type']) && ! array_key_exists($pre_built['post_type'], $this->post_type) ) {
-					$permalink = get_home_url(null, $pre_built['link'] );
-				}
+				$pre_built = $this->walk_parent_permalink( $post->post_parent, array( 'link' => '/' . $post->post_name, 'post_type' => $post->post_type ));
+				return trailingslashit( $pre_built['link'] );
 			}
 			return $permalink;
 		}
@@ -56,10 +54,10 @@ if( ! class_exists('WP_Subordinate_Post_Factory')) {
 				);
 			$args = wp_parse_args( $args, $defaults );
 			$parent = get_post( $post_id );
-			if( $parent->post_parent > 0 ) {
+			if( $parent->post_parent > 0 && $parent->post_type == $args['post_type']) {
 				return $this->walk_parent_permalink( $parent->post_parent, array( 'link' => '/' . $parent->post_name . $args['link'], 'post_type' => $parent->post_type ));
 			} else {
-				return array( 'link' => '/' . $parent->post_name . $args['link'], 'post_type' => $parent->post_type );
+				return array( 'link' => untrailingslashit( get_permalink( $parent->ID ) ) . $args['link'], 'post_type' => $parent->post_type );
 			}
 		}
 
