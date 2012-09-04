@@ -1,5 +1,4 @@
 <?php
-
 /*
 Plugin Name: Subordinate Post Type
 Plugin URI: 
@@ -93,7 +92,7 @@ function codex_custom_init() {
     'show_ui' => true, 
     'show_in_menu' => true, 
     'query_var' => true,
-    'rewrite' => true,
+    'rewrite' => array( "slug" => "testing-custom-slugs" ),
     'capability_type' => 'post',
     'has_archive' => true, 
     'hierarchical' => true,
