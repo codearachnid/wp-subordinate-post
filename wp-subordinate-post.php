@@ -12,6 +12,8 @@ if( ! class_exists('WP_Subordinate_Post_Factory')) {
 		protected $hierarchical_delim = '&#8212;';
 		protected $namespace = 'wp_subordinate_post';
 
+		protected $rewrite_rules = array();
+
 		function __construct(){
 			// play nice with PHP_INT_MAX incase someone really wants to override - thanks Daniel @MZAWeb
 			add_action( 'registered_post_type', array($this,'registered_post_type'), PHP_INT_MAX - 1000, 2 );
@@ -20,18 +22,41 @@ if( ! class_exists('WP_Subordinate_Post_Factory')) {
 			add_action( 'quick_edit_custom_box', array( $this, 'quick_edit_custom_box' ), 10, 2 );
 			// hook the get_permalink method to build custom session link
 			add_filter( 'post_type_link', array( $this, 'post_type_link'), 10, 2);
+			add_action( 'init', array( $this, 'maybe_flush_rewrite_rules' ), PHP_INT_MAX - 1000 );
+
 			add_action( 'save_post', array( $this, 'save_post' ) );
 
 			// reset dropdown args for parent pages because it looses track of posts with remote parents
 			add_filter( 'quick_edit_dropdown_pages_args', array( $this, 'dropdown_pages_args' ));
 			add_filter( 'page_attributes_dropdown_pages_args', array( $this, 'dropdown_pages_args' ));
 
-			// making permalinks hot
-			// add_filter( 'generate_rewrite_rules', array( $this, 'generate_rewrite_rules' ));
-
 			// apply filter overrides to settings
 			$this->show_parent_column = apply_filters("{$this->namespace}_show_parent_column", $this->show_parent_column );
 			$this->show_type_parent = apply_filters("{$this->namespace}_show_type_parent", $this->show_type_parent );
+		}
+
+		public function maybe_flush_rewrite_rules() {
+			$key = $this->namespace . "_rw_hash";
+
+			$hash = md5( maybe_serialize( $this->rewrite_rules ) );
+
+			if ( $hash !== get_option( $key ) ) {
+				update_option( $key, $hash );
+				flush_rewrite_rules();
+			}
+		}
+
+		public function add_rewrite_rules( $parent, $child ) {
+			
+			$parent_object = get_post_type_object($parent);
+
+			if ( is_array( $parent_object->rewrite ) && isset( $parent_object->rewrite["slug"] ) ) {
+				$parent = $parent_object->rewrite["slug"];
+			}
+
+			add_rewrite_rule( '^' . $parent . '/([^/]*)/([^/]*)/?', 'index.php?' . $child . '=$matches[2]', 'top' );
+			
+			$this->rewrite_rules[$parent] = $child;
 		}
 
 		public function deactivate() {
@@ -93,7 +118,10 @@ if( ! class_exists('WP_Subordinate_Post_Factory')) {
 				add_filter( 'manage_' . $ptype . '_posts_columns' , array($this,'manage__columns'));
 				add_action( 'manage_' . $ptype . '_posts_custom_column' , array($this,'manage__custom_column'), 10, 2 );
 				// add_filter( 'manage_' . $ptype . '_sortable_columns', array($this,'manage__sortable_columns'));
+
+				$this->add_rewrite_rules( $parent, $ptype );
 			}
+
 		}
 
 		function quick_edit_custom_box( $column_name, $post_type ) {
